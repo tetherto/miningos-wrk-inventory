@@ -1,0 +1,7 @@
+{
+  "collectSnapTimeoutMs": 120000,
+  "collectSnapsItvMs": 60000,
+  "logRotateMaxLength": 10000,
+  "logKeepCount": 3,
+  "inventory": {}
+}

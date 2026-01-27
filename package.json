@@ -1,0 +1,36 @@
+{
+  "name": "miningos-wrk-inventory",
+  "version": "0.0.1",
+  "description": "MiningOS Worker Inventory",
+  "keywords": [
+    "tether"
+  ],
+  "author": "Tether",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tetherto/miningos-wrk-inventory.git"
+  },
+  "engine": {
+    "node": ">=20.0"
+  },
+  "scripts": {
+    "lint": "standard",
+    "lint:fix": "standard --fix",
+    "test": "npm run lint && npm run test:unit",
+    "test:unit": "brittle tests/unit/*.js",
+    "test:coverage": "brittle --coverage tests/{,**/}*.test.js"
+  },
+  "dependencies": {
+    "async": "3.2.6",
+    "miningos-lib-stats": "git+https://github.com/tetherto/miningos-lib-stats.git#pull/1/head",
+    "miningos-tpl-wrk-thing": "git+https://github.com/tetherto/miningos-tpl-wrk-thing.git#pull/1/head"
+  },
+  "devDependencies": {
+    "brittle": "3.16.3",
+    "standard": "17.1.0"
+  },
+  "overrides": {
+    "svc-facs-miningos-thg-write-calls": "git+https://github.com/tetherto/svc-facs-miningos-thg-write-calls.git#pull/1/head"
+  }
+}
