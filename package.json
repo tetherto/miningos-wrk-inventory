@@ -11,9 +11,21 @@
     "type": "git",
     "url": "git+https://github.com/tetherto/miningos-wrk-inventory.git"
   },
-  "engine": {
-    "node": ">=20.0"
+  "homepage": "https://github.com/tetherto/miningos-wrk-inventory#readme",
+  "bugs": {
+    "url": "https://github.com/tetherto/miningos-wrk-inventory/issues"
   },
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "worker.js",
+    "workers/"
+  ],  
+  "type": "commonjs",
+  "bin": {
+    "miningos-wrk-inventory": "worker.js"
+  },    
   "scripts": {
     "lint": "standard",
     "lint:fix": "standard --fix",
