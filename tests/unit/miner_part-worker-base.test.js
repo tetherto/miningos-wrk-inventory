@@ -41,6 +41,29 @@ test('miner_part-worker-base: getThingTags should include miner_part tag', (t) =
   t.ok(tags.includes(INVENTORY_TYPES.MINER_PART))
 })
 
+test('miner_part-worker-base: real getThingType should chain through super', (t) => {
+  const worker = Object.create(WrkMinerPartRack.prototype)
+  const result = WrkMinerPartRack.prototype.getThingType.call(worker)
+  t.is(result, `inventory-${INVENTORY_TYPES.MINER_PART}`)
+})
+
+test('miner_part-worker-base: real getThingTags should chain through super', (t) => {
+  const worker = Object.create(WrkMinerPartRack.prototype)
+  const tags = WrkMinerPartRack.prototype.getThingTags.call(worker)
+  t.ok(Array.isArray(tags))
+  t.ok(tags.includes('inventory'))
+  t.ok(tags.includes(INVENTORY_TYPES.MINER_PART))
+})
+
+test('miner_part-worker-base: real _validateRegisterThing should chain through super', (t) => {
+  const worker = Object.create(WrkMinerPartRack.prototype)
+  worker.mem = { things: {} }
+
+  t.exception(() => {
+    WrkMinerPartRack.prototype._validateRegisterThing.call(worker, {})
+  }, 'ERR_THING_VALIDATE_INFO_INVALID')
+})
+
 test('miner_part-worker-base: _generateThingCode should throw on unknown part type', (t) => {
   const worker = createMockWorker()
   worker.getThingType = function () {

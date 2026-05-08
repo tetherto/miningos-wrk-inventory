@@ -131,3 +131,17 @@ test('controller.worker: _validateRegisterThing should pass with both serialNum 
     worker._validateRegisterThing(data)
   })
 })
+
+test('controller.worker: real getThingType should chain super and append controller', (t) => {
+  const worker = Object.create(WrkControllerMinerPartRack.prototype)
+  const result = WrkControllerMinerPartRack.prototype.getThingType.call(worker)
+  t.is(result, `inventory-miner_part-${MINER_PART_TYPES.CONTROLLER.name}`)
+})
+
+test('controller.worker: real getThingTags should inherit miner_part and inventory tags', (t) => {
+  const worker = Object.create(WrkControllerMinerPartRack.prototype)
+  const tags = WrkControllerMinerPartRack.prototype.getThingTags.call(worker)
+  t.ok(Array.isArray(tags))
+  t.ok(tags.includes('inventory'))
+  t.ok(tags.includes('miner_part'))
+})
