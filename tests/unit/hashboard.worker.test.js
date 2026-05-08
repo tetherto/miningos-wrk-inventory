@@ -59,3 +59,17 @@ test('hashboard.worker: _validateRegisterThing should pass with serialNum', (t) 
     worker._validateRegisterThing(data)
   })
 })
+
+test('hashboard.worker: real getThingType should chain super and append hashboard', (t) => {
+  const worker = Object.create(WrkHashboardMinerPartRack.prototype)
+  const result = WrkHashboardMinerPartRack.prototype.getThingType.call(worker)
+  t.is(result, `inventory-miner_part-${MINER_PART_TYPES.HASHBOARD.name}`)
+})
+
+test('hashboard.worker: real getThingTags should inherit miner_part and inventory tags', (t) => {
+  const worker = Object.create(WrkHashboardMinerPartRack.prototype)
+  const tags = WrkHashboardMinerPartRack.prototype.getThingTags.call(worker)
+  t.ok(Array.isArray(tags))
+  t.ok(tags.includes('inventory'))
+  t.ok(tags.includes('miner_part'))
+})

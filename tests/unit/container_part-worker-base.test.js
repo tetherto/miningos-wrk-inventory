@@ -86,3 +86,17 @@ test('container_part-worker-base: _validateRegisterThing should pass with valid 
     worker._validateRegisterThing(data)
   })
 })
+
+test('container_part-worker-base: real getThingType should chain through super', (t) => {
+  const worker = Object.create(WrkContainerPartRack.prototype)
+  const result = WrkContainerPartRack.prototype.getThingType.call(worker)
+  t.is(result, `inventory-${INVENTORY_TYPES.CONTAINER_PART}`)
+})
+
+test('container_part-worker-base: real getThingTags should chain through super', (t) => {
+  const worker = Object.create(WrkContainerPartRack.prototype)
+  const tags = WrkContainerPartRack.prototype.getThingTags.call(worker)
+  t.ok(Array.isArray(tags))
+  t.ok(tags.includes('inventory'))
+  t.ok(tags.includes(INVENTORY_TYPES.CONTAINER_PART))
+})

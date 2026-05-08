@@ -59,3 +59,17 @@ test('psu.worker: _validateRegisterThing should pass with serialNum', (t) => {
     worker._validateRegisterThing(data)
   })
 })
+
+test('psu.worker: real getThingType should chain super and append psu', (t) => {
+  const worker = Object.create(WrkPsuMinerPartRack.prototype)
+  const result = WrkPsuMinerPartRack.prototype.getThingType.call(worker)
+  t.is(result, `inventory-miner_part-${MINER_PART_TYPES.PSU.name}`)
+})
+
+test('psu.worker: real getThingTags should inherit miner_part and inventory tags', (t) => {
+  const worker = Object.create(WrkPsuMinerPartRack.prototype)
+  const tags = WrkPsuMinerPartRack.prototype.getThingTags.call(worker)
+  t.ok(Array.isArray(tags))
+  t.ok(tags.includes('inventory'))
+  t.ok(tags.includes('miner_part'))
+})
