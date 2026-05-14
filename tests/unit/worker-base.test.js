@@ -217,6 +217,44 @@ test('worker-base: _validateUpdateThing should throw on parentDeviceType model m
   }, 'ERR_UPDATE_PARENT_DEVICE_TYPE_MODEL_MISMATCH')
 })
 
+test('worker-base: _validateUpdateThing rejects location/status changes without workOrderId', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    p1: { id: 'p1', info: { location: 'Lab', status: 'active' } }
+  }
+
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { location: 'Site Lab' } }),
+    /ERR_PART_MOVE_REQUIRES_WO/
+  )
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { status: 'in_repair' } }),
+    /ERR_PART_MOVE_REQUIRES_WO/
+  )
+})
+
+test('worker-base: _validateUpdateThing accepts location/status when workOrderId is present', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    p1: { id: 'p1', info: { location: 'Lab', status: 'active' } }
+  }
+
+  t.execution(() =>
+    worker._validateUpdateThing({ id: 'p1', info: { location: 'Site Lab', workOrderId: 'wo-1' } })
+  )
+})
+
+test('worker-base: _validateUpdateThing leaves non-move updates alone', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    p1: { id: 'p1', info: { serialNum: 'SN1', location: 'Lab', status: 'active' } }
+  }
+
+  t.execution(() =>
+    worker._validateUpdateThing({ id: 'p1', info: { serialNum: 'SN1' } })
+  )
+})
+
 test('worker-base: _validateRegisterThing should throw when info is missing', (t) => {
   const worker = createMockWorker()
   worker.mem.things = {}

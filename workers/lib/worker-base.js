@@ -89,6 +89,10 @@ class WrkInventoryRack extends WrkRack {
         throw new Error('ERR_UPDATE_PARENT_DEVICE_TYPE_MODEL_MISMATCH')
       }
     }
+    const movesPart = data.info?.location !== undefined || data.info?.status !== undefined
+    if (movesPart && !data.info?.workOrderId) {
+      throw new Error('ERR_PART_MOVE_REQUIRES_WO')
+    }
   }
 
   _validateParentDeviceData (data) {
