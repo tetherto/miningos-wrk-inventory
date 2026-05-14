@@ -51,6 +51,17 @@ const WORK_ORDER_VALID_TRANSITIONS = {
 
 const WORK_ORDER_DEFAULT_PREFIX = 'IVI'
 
+const WORK_ORDER_FILE_MAX_BYTES_DEFAULT = 10 * 1024 * 1024
+const WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT = [
+  'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+  'application/pdf', 'text/plain', 'text/csv', 'application/json'
+]
+const WORK_ORDER_FILE_RPC_METHODS = [
+  'storeWorkOrderFile',
+  'loadWorkOrderFile',
+  'removeWorkOrderFile'
+]
+
 module.exports = {
   INVENTORY_TYPES,
   MINER_PART_TYPES,
@@ -60,5 +71,8 @@ module.exports = {
   WORK_ORDER_STATUSES,
   WORK_ORDER_TERMINAL_STATUSES,
   WORK_ORDER_VALID_TRANSITIONS,
-  WORK_ORDER_DEFAULT_PREFIX
+  WORK_ORDER_DEFAULT_PREFIX,
+  WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
+  WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
+  WORK_ORDER_FILE_RPC_METHODS
 }

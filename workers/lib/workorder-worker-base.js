@@ -1,6 +1,8 @@
 'use strict'
 
 const async = require('async')
+const Hyperblobs = require('hyperblobs')
+const { v4: uuidv4 } = require('uuid')
 const WrkInventoryRack = require('./worker-base')
 const {
   WORK_ORDER_THING_TYPE,
@@ -8,7 +10,10 @@ const {
   WORK_ORDER_STATUSES,
   WORK_ORDER_TERMINAL_STATUSES,
   WORK_ORDER_VALID_TRANSITIONS,
-  WORK_ORDER_DEFAULT_PREFIX
+  WORK_ORDER_DEFAULT_PREFIX,
+  WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
+  WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
+  WORK_ORDER_FILE_RPC_METHODS
 } = require('./constants')
 
 const WO_TYPES = new Set(Object.values(WORK_ORDER_TYPES))
@@ -24,6 +29,24 @@ class WrkWorkOrderRack extends WrkInventoryRack {
           this.conf?.thing?.workOrderPrefix || WORK_ORDER_DEFAULT_PREFIX
         this.workOrderCounters = this.db.sub('wo_counters')
         await this.workOrderCounters.ready()
+
+        const blobCore = this.store_s1.getCore({ name: 'wo_blobs' })
+        await blobCore.ready()
+        this.workOrderBlobs = new Hyperblobs(blobCore)
+
+        this.workOrderFileMaxBytes =
+          this.conf?.thing?.workOrderFileMaxBytes || WORK_ORDER_FILE_MAX_BYTES_DEFAULT
+        this.workOrderFileMimeAllowlist = new Set(
+          this.conf?.thing?.workOrderFileMimeAllowlist || WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT
+        )
+      },
+      async () => {
+        const rpcServer = this.net_r0.rpcServer
+        for (const method of WORK_ORDER_FILE_RPC_METHODS) {
+          rpcServer.respond(method, async (req) => {
+            return await this.net_r0.handleReply(method, req)
+          })
+        }
       }
     ], cb)
   }
@@ -128,6 +151,45 @@ class WrkWorkOrderRack extends WrkInventoryRack {
       if (thg.code === code) return id
     }
     return null
+  }
+
+  async storeWorkOrderFile (req) {
+    if (!req.workOrderId) throw new Error('ERR_WO_FILE_WORK_ORDER_ID_REQUIRED')
+    if (!req.contentBase64 || typeof req.contentBase64 !== 'string') {
+      throw new Error('ERR_WO_FILE_CONTENT_REQUIRED')
+    }
+    if (!req.mime || !this.workOrderFileMimeAllowlist.has(req.mime)) {
+      throw new Error('ERR_FILE_MIME_NOT_ALLOWED')
+    }
+    const buf = Buffer.from(req.contentBase64, 'base64')
+    if (buf.length > this.workOrderFileMaxBytes) {
+      throw new Error('ERR_FILE_TOO_LARGE')
+    }
+    const blobRef = await this.workOrderBlobs.put(buf)
+    return {
+      id: uuidv4(),
+      name: req.name || 'unnamed',
+      mime: req.mime,
+      size: buf.length,
+      blobRef,
+      ts: Date.now(),
+      user: req.user || null
+    }
+  }
+
+  async loadWorkOrderFile (req) {
+    if (!req.blobRef) throw new Error('ERR_WO_FILE_BLOB_REF_REQUIRED')
+    const buf = await this.workOrderBlobs.get(req.blobRef)
+    if (!buf) throw new Error('ERR_WO_FILE_NOT_FOUND')
+    return { contentBase64: buf.toString('base64') }
+  }
+
+  async removeWorkOrderFile (req) {
+    if (!req.blobRef) throw new Error('ERR_WO_FILE_BLOB_REF_REQUIRED')
+    try {
+      await this.workOrderBlobs.clear(req.blobRef)
+    } catch (e) { /* clear is best-effort */ }
+    return 1
   }
 }
 
