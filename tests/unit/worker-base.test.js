@@ -224,7 +224,7 @@ test('worker-base: _validateUpdateThing rejects location/status changes without 
   }
 
   t.exception(
-    () => worker._validateUpdateThing({ id: 'p1', info: { location: 'Site Lab' } }),
+    () => worker._validateUpdateThing({ id: 'p1', info: { location: 'siteLab' } }),
     /ERR_PART_MOVE_REQUIRES_WO/
   )
   t.exception(
@@ -240,7 +240,7 @@ test('worker-base: _validateUpdateThing accepts location/status when workOrderId
   }
 
   t.execution(() =>
-    worker._validateUpdateThing({ id: 'p1', info: { location: 'Site Lab', workOrderId: 'wo-1' } })
+    worker._validateUpdateThing({ id: 'p1', info: { location: 'siteLab', workOrderId: 'wo-1' } })
   )
 })
 
@@ -257,7 +257,7 @@ test('worker-base: _validateUpdateThing leaves non-move updates alone', (t) => {
 
 test('worker-base: _validateLocation rejects values outside MINER_LOCATIONS', (t) => {
   const worker = createMockWorker()
-  worker.mem.things = { p1: { id: 'p1', info: { location: 'Site Lab', status: 'active' } } }
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'siteLab', status: 'active' } } }
 
   t.exception(
     () => worker._validateUpdateThing({ id: 'p1', info: { location: 'Workshop Lab', workOrderId: 'wo-1' } }),
@@ -272,7 +272,7 @@ test('worker-base: _validateLocation rejects values outside MINER_LOCATIONS', (t
 test('worker-base: _validateLocation accepts every canonical MINER_LOCATIONS value', (t) => {
   const { MINER_LOCATIONS } = require('../../workers/lib/constants')
   const worker = createMockWorker()
-  worker.mem.things = { p1: { id: 'p1', info: { location: 'Site Lab' } } }
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'siteLab' } } }
   for (const loc of MINER_LOCATIONS) {
     t.execution(
       () => worker._validateUpdateThing({ id: 'p1', info: { location: loc, workOrderId: 'wo-1' } }),
@@ -291,7 +291,7 @@ test('worker-base: _validateRegisterThing rejects unknown location', (t) => {
 
 test('worker-base: _validateLocation noops when location is absent/null', (t) => {
   const worker = createMockWorker()
-  worker.mem.things = { p1: { id: 'p1', info: { location: 'Site Lab' } } }
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'siteLab' } } }
   t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { status: 'active', workOrderId: 'wo-1' } }))
   t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { location: null, workOrderId: 'wo-1' } }))
 })

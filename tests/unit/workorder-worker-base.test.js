@@ -85,7 +85,7 @@ test('wo-spike: _validateRegisterThing — Type 1 does not require issue', (t) =
 
 test('wo-spike: _validateRegisterThing — Type 1 preserves caller-supplied partsMoves', (t) => {
   const r = newRack()
-  const entry = { partId: 'p1', fromLocation: null, toLocation: 'SiteWarehouse' }
+  const entry = { partId: 'p1', fromLocation: null, toLocation: 'siteWarehouse' }
   const valid = { info: { type: 1, deviceType: 'psu', deviceModel: 'PSU-1', deviceIdentifier: 'SN-1', partsMoves: [entry] } }
   r._validateRegisterThing(valid)
   t.is(valid.info.partsMoves.length, 1)

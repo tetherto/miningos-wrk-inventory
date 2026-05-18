@@ -53,9 +53,9 @@ const WORK_ORDER_DEFAULT_PREFIX = 'IVI'
 
 const WORK_ORDER_VALID_DEVICE_TYPES = ['miner', 'psu', 'hashboard', 'controller']
 
-const MINER_LOCATIONS = ['Site Warehouse', 'Site Lab', 'Miner Room', 'Vendor', 'Scrapped', 'Disposed']
+const MINER_LOCATIONS = ['siteWarehouse', 'siteLab', 'minerRoom', 'vendor', 'scrapped', 'disposed']
 
-const SPARE_PART_INITIAL_LOCATION = 'Site Warehouse'
+const SPARE_PART_INITIAL_LOCATION = 'siteWarehouse'
 
 const WORK_ORDER_FILE_MAX_BYTES_DEFAULT = 10 * 1024 * 1024
 const WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT = [
