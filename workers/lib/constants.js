@@ -25,7 +25,7 @@ const WORK_ORDER_TYPES = {
 
 const WORK_ORDER_STATUSES = {
   OPEN: 'open',
-  IN_PROGRESS: 'inProgress',
+  IN_PROGRESS: 'in_progress',
   CLOSED: 'closed',
   CANCELLED: 'cancelled'
 }
