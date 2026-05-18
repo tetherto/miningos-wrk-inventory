@@ -55,17 +55,6 @@ const WORK_ORDER_VALID_DEVICE_TYPES = ['miner', 'psu', 'hashboard', 'controller'
 
 const MINER_LOCATIONS = ['Site Warehouse', 'Site Lab', 'Miner Room', 'Vendor', 'Scrapped', 'Disposed']
 
-const LOCATION_MIGRATION_MAP = {
-  'Workshop Warehouse': 'Site Warehouse',
-  'Workshop Lab': 'Site Lab',
-  'Site Field': 'Miner Room',
-  'In Use': 'Miner Room',
-  Field: 'Miner Room',
-  Lab: 'Site Lab',
-  Warehouse: 'Site Warehouse',
-  SiteWarehouse: 'Site Warehouse'
-}
-
 const SPARE_PART_INITIAL_LOCATION = 'Site Warehouse'
 
 const WORK_ORDER_FILE_MAX_BYTES_DEFAULT = 10 * 1024 * 1024
@@ -94,6 +83,5 @@ module.exports = {
   WORK_ORDER_FILE_RPC_METHODS,
   WORK_ORDER_VALID_DEVICE_TYPES,
   SPARE_PART_INITIAL_LOCATION,
-  MINER_LOCATIONS,
-  LOCATION_MIGRATION_MAP
+  MINER_LOCATIONS
 }
