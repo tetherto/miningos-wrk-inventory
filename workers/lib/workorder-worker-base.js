@@ -15,12 +15,17 @@ const {
   WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
   WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
   WORK_ORDER_FILE_RPC_METHODS,
+  WORK_ORDER_COUNTERS_DB,
+  WORK_ORDER_BLOBS_CORE,
+  WORK_ORDER_COUNTER_KEY_PREFIX,
+  WORK_ORDER_COUNTER_CAS_MAX_ATTEMPTS,
   WORK_ORDER_VALID_DEVICE_TYPES
 } = require('./constants')
 
 const WO_TYPES = new Set(Object.values(WORK_ORDER_TYPES))
 const WO_STATUSES = new Set(Object.values(WORK_ORDER_STATUSES))
-const COUNTER_KEY = (type) => `wo:counter:${type}`
+const WO_VALID_DEVICE_TYPES_SET = new Set(WORK_ORDER_VALID_DEVICE_TYPES)
+const counterKey = (type) => `${WORK_ORDER_COUNTER_KEY_PREFIX}${type}`
 
 class WrkWorkOrderRack extends WrkInventoryRack {
   _start (cb) {
@@ -29,11 +34,15 @@ class WrkWorkOrderRack extends WrkInventoryRack {
       async () => {
         this.workOrderPrefix =
           this.conf?.thing?.workOrderPrefix || WORK_ORDER_DEFAULT_PREFIX
-        this.workOrderCounters = this.db.sub('wo_counters')
-        await this.workOrderCounters.ready()
+        this.workOrderCounters = this.db.sub(WORK_ORDER_COUNTERS_DB)
+        this._workOrderCounterCache = new Map()
 
-        const blobCore = this.store_s1.getCore({ name: 'wo_blobs' })
-        await blobCore.ready()
+        const blobCore = this.store_s1.getCore({ name: WORK_ORDER_BLOBS_CORE })
+
+        await Promise.all([
+          this.workOrderCounters.ready(),
+          blobCore.ready()
+        ])
         this.workOrderBlobs = new Hyperblobs(blobCore)
 
         this.workOrderFileMaxBytes =
@@ -41,8 +50,7 @@ class WrkWorkOrderRack extends WrkInventoryRack {
         this.workOrderFileMimeAllowlist = new Set(
           this.conf?.thing?.workOrderFileMimeAllowlist || WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT
         )
-      },
-      async () => {
+
         const rpcServer = this.net_r0.rpcServer
         for (const method of WORK_ORDER_FILE_RPC_METHODS) {
           rpcServer.respond(method, async (req) => {
@@ -65,37 +73,44 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     return { info: thg.info }
   }
 
-  async collectThingSnap () { return null }
-
   async _nextWorkOrderNumber (type) {
-    while (true) {
-      const node = await this.workOrderCounters.get(COUNTER_KEY(type))
-      const current = node ? parseInt(node.value.toString(), 10) : 0
+    if (!this._workOrderCounterCache) this._workOrderCounterCache = new Map()
+    const key = counterKey(type)
+    let current = this._workOrderCounterCache.get(type)
+    if (current === undefined) {
+      const node = await this.workOrderCounters.get(key)
+      current = node ? parseInt(node.value.toString(), 10) : 0
+    }
+    for (let attempt = 0; attempt < WORK_ORDER_COUNTER_CAS_MAX_ATTEMPTS; attempt++) {
       const next = current + 1
-      let succeeded = true
+      let won = true
       await this.workOrderCounters.put(
-        COUNTER_KEY(type),
+        key,
         Buffer.from(String(next)),
         {
           cas: (prev) => {
             const prevVal = prev?.value ? parseInt(prev.value.toString(), 10) : 0
-            const ok = prevVal === current
-            if (!ok) succeeded = false
-            return ok
+            if (prevVal !== current) {
+              current = prevVal
+              won = false
+              return false
+            }
+            return true
           }
         }
       )
-      if (succeeded) return next
+      if (won) {
+        this._workOrderCounterCache.set(type, next)
+        return next
+      }
     }
+    throw new Error('ERR_WO_COUNTER_CAS_EXHAUSTED')
   }
 
   _validateRegisterThing (data) {
     if (!data.info) throw new Error('ERR_THING_VALIDATE_INFO_INVALID')
     if (!WO_TYPES.has(data.info.type)) throw new Error('ERR_WO_TYPE_INVALID')
-    if (!data.info.deviceType || typeof data.info.deviceType !== 'string') {
-      throw new Error('ERR_WO_DEVICE_TYPE_INVALID')
-    }
-    if (!WORK_ORDER_VALID_DEVICE_TYPES.includes(data.info.deviceType)) {
+    if (!data.info.deviceType || !WO_VALID_DEVICE_TYPES_SET.has(data.info.deviceType)) {
       throw new Error('ERR_WO_DEVICE_TYPE_INVALID')
     }
     if (!data.info.deviceModel || typeof data.info.deviceModel !== 'string') {
@@ -144,26 +159,17 @@ class WrkWorkOrderRack extends WrkInventoryRack {
   }
 
   async registerThing (req) {
-    this._validateRegisterThing(req)
-    if (!req.code) {
+    if (!req.code && req.info?.type) {
       const n = await this._nextWorkOrderNumber(req.info.type)
       req.code = `${this.workOrderPrefix}-${req.info.type}-${String(n).padStart(4, '0')}`
     }
     await super.registerThing(req)
-    const id = req.id || this._findIdByCode(req.code)
-    return id ? this.mem.things[id] : null
+    return this.mem.things[req.id] || null
   }
 
   async updateThing (req) {
     await super.updateThing(req)
     return this.mem.things[req.id] || null
-  }
-
-  _findIdByCode (code) {
-    for (const [id, thg] of Object.entries(this.mem.things)) {
-      if (thg.code === code) return id
-    }
-    return null
   }
 
   async storeWorkOrderFile (req) {
@@ -173,6 +179,9 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     }
     if (!req.mime || !this.workOrderFileMimeAllowlist.has(req.mime)) {
       throw new Error('ERR_FILE_MIME_NOT_ALLOWED')
+    }
+    if (req.contentBase64.length * 0.75 > this.workOrderFileMaxBytes) {
+      throw new Error('ERR_FILE_TOO_LARGE')
     }
     const buf = Buffer.from(req.contentBase64, 'base64')
     if (buf.length > this.workOrderFileMaxBytes) {
@@ -201,7 +210,7 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     if (!req.blobRef) throw new Error('ERR_WO_FILE_BLOB_REF_REQUIRED')
     try {
       await this.workOrderBlobs.clear(req.blobRef)
-    } catch (e) { /* clear is best-effort */ }
+    } catch (e) { /* blob may already be evicted by hyperblobs */ }
     return 1
   }
 }

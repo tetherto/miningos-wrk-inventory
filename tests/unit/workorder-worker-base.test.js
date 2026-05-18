@@ -152,9 +152,17 @@ test('wo-spike: _validateUpdateThing validates warranty when provided', (t) => {
 })
 
 test('wo-spike: getThingType / getThingTags identify WOs', (t) => {
-  const r = Object.create(WrkWorkOrderRack.prototype)
-  Object.getPrototypeOf(WrkWorkOrderRack.prototype).getThingType = function () { return 'inventory' }
-  Object.getPrototypeOf(WrkWorkOrderRack.prototype).getThingTags = function () { return ['inventory'] }
-  t.is(r.getThingType(), 'inventory-work_order')
-  t.ok(r.getThingTags().includes('work_order'))
+  const parent = Object.getPrototypeOf(WrkWorkOrderRack.prototype)
+  const originalType = parent.getThingType
+  const originalTags = parent.getThingTags
+  parent.getThingType = function () { return 'inventory' }
+  parent.getThingTags = function () { return ['inventory'] }
+  try {
+    const r = Object.create(WrkWorkOrderRack.prototype)
+    t.is(r.getThingType(), 'inventory-work_order')
+    t.ok(r.getThingTags().includes('work_order'))
+  } finally {
+    parent.getThingType = originalType
+    parent.getThingTags = originalTags
+  }
 })
