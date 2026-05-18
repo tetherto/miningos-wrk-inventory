@@ -64,6 +64,21 @@ test('warranty-schemas: avalon requires ticketId + faultDescription', (t) => {
   )
 })
 
+test('warranty-schemas: unknown fields are rejected with ERR_WARRANTY_UNKNOWN_FIELDS', (t) => {
+  t.exception(
+    () => validateWarranty({ vendor: 'microbt', fields: { rmaNumber: 'R', faultCode: 'F', mistypo: 'oops' } }),
+    /ERR_WARRANTY_UNKNOWN_FIELDS:mistypo/
+  )
+  t.exception(
+    () => validateWarranty({ vendor: 'avalon', fields: { ticketId: 'T', faultDescription: 'D', randomA: 1, randomB: 2 } }),
+    /ERR_WARRANTY_UNKNOWN_FIELDS:randomA,randomB/
+  )
+  t.execution(
+    () => validateWarranty({ vendor: 'microbt', fields: { rmaNumber: 'R', faultCode: 'F', photos: ['a.jpg'], notes: 'ok' } }),
+    'optional fields stay allowed'
+  )
+})
+
 test('warranty-schemas: required field rejects whitespace-only strings', (t) => {
   t.exception(
     () => validateWarranty({ vendor: 'microbt', fields: { rmaNumber: '   ', faultCode: 'E03' } }),

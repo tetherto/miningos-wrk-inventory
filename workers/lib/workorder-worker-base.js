@@ -210,7 +210,9 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     if (!req.blobRef) throw new Error('ERR_WO_FILE_BLOB_REF_REQUIRED')
     try {
       await this.workOrderBlobs.clear(req.blobRef)
-    } catch (e) { /* blob may already be evicted by hyperblobs */ }
+    } catch (e) {
+      console.error('[wo-rack] removeWorkOrderFile blob clear failed', { blobRef: req.blobRef, err: e?.message })
+    }
     return 1
   }
 }

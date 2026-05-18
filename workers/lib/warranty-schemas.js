@@ -27,6 +27,11 @@ function validateWarranty (warranty) {
   if (!fields || typeof fields !== 'object' || Array.isArray(fields)) {
     throw new Error('ERR_WARRANTY_FIELDS_INVALID')
   }
+  const allowed = new Set([...schema.required, ...schema.optional])
+  const unknown = Object.keys(fields).filter((k) => !allowed.has(k))
+  if (unknown.length) {
+    throw new Error(`ERR_WARRANTY_UNKNOWN_FIELDS:${unknown.join(',')}`)
+  }
   const missing = schema.required.filter((k) => {
     const v = fields[k]
     return typeof v !== 'string' || !v.trim()
