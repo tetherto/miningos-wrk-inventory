@@ -1,13 +1,21 @@
 'use strict'
 
-const microbt = require('./microbt')
-const bitmain = require('./bitmain')
-const avalon = require('./avalon')
-
 const SCHEMAS = {
-  [microbt.vendor]: microbt,
-  [bitmain.vendor]: bitmain,
-  [avalon.vendor]: avalon
+  microbt: {
+    vendor: 'microbt',
+    required: ['rmaNumber', 'faultCode'],
+    optional: ['photos', 'notes', 'serialPhoto']
+  },
+  bitmain: {
+    vendor: 'bitmain',
+    required: ['rmaNumber', 'claimReason'],
+    optional: ['photos', 'serialPhoto', 'firmware']
+  },
+  avalon: {
+    vendor: 'avalon',
+    required: ['ticketId', 'faultDescription'],
+    optional: ['photos', 'firmware']
+  }
 }
 
 function validateWarranty (warranty) {
