@@ -64,6 +64,7 @@ test('wo-spike: _validateRegisterThing rejects bad type / missing fields and fil
   const r = newRack()
   t.exception(() => r._validateRegisterThing({}), /ERR_THING_VALIDATE_INFO_INVALID/)
   t.exception(() => r._validateRegisterThing({ info: { type: 99 } }), /ERR_WO_TYPE_INVALID/)
+  t.exception(() => r._validateRegisterThing({ info: { type: 2, deviceType: 'cooling', deviceModel: 'm', deviceIdentifier: 'd' } }), /ERR_WO_DEVICE_TYPE_INVALID/)
   t.exception(() => r._validateRegisterThing({ info: { type: 2, deviceType: 'miner', deviceModel: 'm', deviceIdentifier: 'd' } }), /ERR_WO_ISSUE_INVALID/)
 
   const valid = { info: { type: 2, deviceType: 'miner', deviceModel: 'm', deviceIdentifier: 'd', issue: 'i' } }
@@ -71,6 +72,24 @@ test('wo-spike: _validateRegisterThing rejects bad type / missing fields and fil
   t.is(valid.info.status, WORK_ORDER_STATUSES.OPEN)
   t.is(valid.info.assignedTo, null)
   t.is(valid.info.finalResult, null)
+  t.alike(valid.info.partsMoves, [])
+})
+
+test('wo-spike: _validateRegisterThing — Type 1 does not require issue', (t) => {
+  const r = newRack()
+  const valid = { info: { type: 1, deviceType: 'psu', deviceModel: 'PSU-1', deviceIdentifier: 'SN-1' } }
+  r._validateRegisterThing(valid)
+  t.is(valid.info.status, WORK_ORDER_STATUSES.OPEN)
+  t.alike(valid.info.partsMoves, [])
+})
+
+test('wo-spike: _validateRegisterThing — Type 1 preserves caller-supplied partsMoves', (t) => {
+  const r = newRack()
+  const entry = { partId: 'p1', fromLocation: null, toLocation: 'SiteWarehouse' }
+  const valid = { info: { type: 1, deviceType: 'psu', deviceModel: 'PSU-1', deviceIdentifier: 'SN-1', partsMoves: [entry] } }
+  r._validateRegisterThing(valid)
+  t.is(valid.info.partsMoves.length, 1)
+  t.is(valid.info.partsMoves[0].partId, 'p1')
 })
 
 test('wo-spike: _validateUpdateThing enforces transitions and terminal-state guard', (t) => {

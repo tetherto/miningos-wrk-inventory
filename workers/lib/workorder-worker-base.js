@@ -13,7 +13,8 @@ const {
   WORK_ORDER_DEFAULT_PREFIX,
   WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
   WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
-  WORK_ORDER_FILE_RPC_METHODS
+  WORK_ORDER_FILE_RPC_METHODS,
+  WORK_ORDER_VALID_DEVICE_TYPES
 } = require('./constants')
 
 const WO_TYPES = new Set(Object.values(WORK_ORDER_TYPES))
@@ -93,19 +94,25 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     if (!data.info.deviceType || typeof data.info.deviceType !== 'string') {
       throw new Error('ERR_WO_DEVICE_TYPE_INVALID')
     }
+    if (!WORK_ORDER_VALID_DEVICE_TYPES.includes(data.info.deviceType)) {
+      throw new Error('ERR_WO_DEVICE_TYPE_INVALID')
+    }
     if (!data.info.deviceModel || typeof data.info.deviceModel !== 'string') {
       throw new Error('ERR_WO_DEVICE_MODEL_INVALID')
     }
     if (!data.info.deviceIdentifier || typeof data.info.deviceIdentifier !== 'string') {
       throw new Error('ERR_WO_DEVICE_IDENTIFIER_INVALID')
     }
-    if (!data.info.issue || typeof data.info.issue !== 'string') {
-      throw new Error('ERR_WO_ISSUE_INVALID')
+    if (data.info.type === WORK_ORDER_TYPES.REGULAR) {
+      if (!data.info.issue || typeof data.info.issue !== 'string') {
+        throw new Error('ERR_WO_ISSUE_INVALID')
+      }
     }
     data.info.status = data.info.status || WORK_ORDER_STATUSES.OPEN
     data.info.assignedTo = data.info.assignedTo ?? null
     data.info.finalResult = data.info.finalResult ?? null
     data.info.warranty = data.info.warranty ?? null
+    if (!Array.isArray(data.info.partsMoves)) data.info.partsMoves = []
   }
 
   _validateUpdateThing (data) {
