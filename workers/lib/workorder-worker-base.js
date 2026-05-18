@@ -4,6 +4,7 @@ const async = require('async')
 const Hyperblobs = require('hyperblobs')
 const { v4: uuidv4 } = require('uuid')
 const WrkInventoryRack = require('./worker-base')
+const { validateWarranty } = require('./warranty-schemas')
 const {
   WORK_ORDER_THING_TYPE,
   WORK_ORDER_TYPES,
@@ -113,6 +114,7 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     data.info.finalResult = data.info.finalResult ?? null
     data.info.warranty = data.info.warranty ?? null
     if (!Array.isArray(data.info.partsMoves)) data.info.partsMoves = []
+    validateWarranty(data.info.warranty)
   }
 
   _validateUpdateThing (data) {
@@ -134,6 +136,10 @@ class WrkWorkOrderRack extends WrkInventoryRack {
       if (!allowed || !allowed.has(nextStatus)) {
         throw new Error('ERR_WO_INVALID_STATUS_TRANSITION')
       }
+    }
+
+    if (data.info?.warranty !== undefined) {
+      validateWarranty(data.info.warranty)
     }
   }
 

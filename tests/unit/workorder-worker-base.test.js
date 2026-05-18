@@ -92,6 +92,22 @@ test('wo-spike: _validateRegisterThing — Type 1 preserves caller-supplied part
   t.is(valid.info.partsMoves[0].partId, 'p1')
 })
 
+test('wo-spike: _validateRegisterThing rejects invalid warranty payload', (t) => {
+  const r = newRack()
+  const base = { type: 1, deviceType: 'psu', deviceModel: 'PSU-1', deviceIdentifier: 'SN-1' }
+  t.exception(
+    () => r._validateRegisterThing({ info: { ...base, warranty: { vendor: 'unknown', fields: {} } } }),
+    /ERR_UNKNOWN_VENDOR/
+  )
+  t.exception(
+    () => r._validateRegisterThing({ info: { ...base, warranty: { vendor: 'microbt', fields: {} } } }),
+    /ERR_WARRANTY_MISSING_FIELDS/
+  )
+  const valid = { info: { ...base, warranty: { vendor: 'microbt', fields: { rmaNumber: 'RMA-1', faultCode: 'E03' } } } }
+  r._validateRegisterThing(valid)
+  t.is(valid.info.warranty.vendor, 'microbt')
+})
+
 test('wo-spike: _validateUpdateThing enforces transitions and terminal-state guard', (t) => {
   const r = newRack()
   r.mem.things = {
@@ -116,6 +132,23 @@ test('wo-spike: _validateUpdateThing enforces transitions and terminal-state gua
 
   // unknown id
   t.exception(() => r._validateUpdateThing({ id: 'nope', info: {} }), /ERR_THING_NOTFOUND/)
+})
+
+test('wo-spike: _validateUpdateThing validates warranty when provided', (t) => {
+  const r = newRack()
+  r.mem.things = { 'wo-1': { id: 'wo-1', info: { status: WORK_ORDER_STATUSES.OPEN } } }
+  t.exception(
+    () => r._validateUpdateThing({ id: 'wo-1', info: { warranty: { vendor: 'unknown', fields: {} } } }),
+    /ERR_UNKNOWN_VENDOR/
+  )
+  t.exception(
+    () => r._validateUpdateThing({ id: 'wo-1', info: { warranty: { vendor: 'microbt', fields: {} } } }),
+    /ERR_WARRANTY_MISSING_FIELDS/
+  )
+  // valid warranty does not throw
+  r._validateUpdateThing({ id: 'wo-1', info: { warranty: { vendor: 'microbt', fields: { rmaNumber: 'X', faultCode: 'Y' } } } })
+  // clearing warranty to null is allowed
+  r._validateUpdateThing({ id: 'wo-1', info: { warranty: null } })
 })
 
 test('wo-spike: getThingType / getThingTags identify WOs', (t) => {
