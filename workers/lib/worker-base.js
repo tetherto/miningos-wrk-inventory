@@ -2,6 +2,9 @@
 
 const async = require('async')
 const WrkRack = require('@tetherto/miningos-tpl-wrk-thing/workers/rack.thing.wrk')
+const { MINER_LOCATIONS } = require('./constants')
+
+const MINER_LOCATIONS_SET = new Set(MINER_LOCATIONS)
 
 class WrkInventoryRack extends WrkRack {
   init () {
@@ -81,6 +84,7 @@ class WrkInventoryRack extends WrkRack {
   _validateUpdateThing (data) {
     this._validatePartDataChange(data)
     this._validateParentDeviceData(data)
+    this._validateLocation(data)
     if (data.info?.parentDeviceType) {
       const oldThing = this.mem.things[data.id]
       if (
@@ -92,6 +96,14 @@ class WrkInventoryRack extends WrkRack {
     const movesPart = data.info?.location !== undefined || data.info?.status !== undefined
     if (movesPart && !data.info?.workOrderId) {
       throw new Error('ERR_PART_MOVE_REQUIRES_WO')
+    }
+  }
+
+  _validateLocation (data) {
+    const loc = data.info?.location
+    if (loc === undefined || loc === null) return
+    if (!MINER_LOCATIONS_SET.has(loc)) {
+      throw new Error('ERR_INVALID_LOCATION')
     }
   }
 
@@ -120,6 +132,7 @@ class WrkInventoryRack extends WrkRack {
     }
     this._validatePartDataChange(data)
     this._validateParentDeviceData(data)
+    this._validateLocation(data)
   }
 }
 
