@@ -2,17 +2,14 @@
 
 const SCHEMAS = {
   microbt: {
-    vendor: 'microbt',
     required: ['rmaNumber', 'faultCode'],
     optional: ['photos', 'notes', 'serialPhoto']
   },
   bitmain: {
-    vendor: 'bitmain',
     required: ['rmaNumber', 'claimReason'],
     optional: ['photos', 'serialPhoto', 'firmware']
   },
   avalon: {
-    vendor: 'avalon',
     required: ['ticketId', 'faultDescription'],
     optional: ['photos', 'firmware']
   }
