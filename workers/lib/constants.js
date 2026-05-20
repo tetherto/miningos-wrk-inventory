@@ -62,11 +62,9 @@ const WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT = [
   'image/png', 'image/jpeg', 'image/webp', 'image/gif',
   'application/pdf', 'text/plain', 'text/csv', 'application/json'
 ]
-const WORK_ORDER_FILE_RPC_METHODS = [
-  'storeWorkOrderFile',
-  'loadWorkOrderFile',
-  'removeWorkOrderFile'
-]
+const FILE_RPC_METHODS = ['storeFile', 'loadFile', 'removeFile']
+
+const FILE_TYPES = { WORK_ORDER: 'work_order' }
 
 const WORK_ORDER_COUNTERS_DB = 'wo_counters'
 const WORK_ORDER_BLOBS_CORE = 'wo_blobs'
@@ -85,7 +83,8 @@ module.exports = {
   WORK_ORDER_DEFAULT_PREFIX,
   WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
   WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
-  WORK_ORDER_FILE_RPC_METHODS,
+  FILE_RPC_METHODS,
+  FILE_TYPES,
   WORK_ORDER_COUNTERS_DB,
   WORK_ORDER_BLOBS_CORE,
   WORK_ORDER_COUNTER_KEY_PREFIX,

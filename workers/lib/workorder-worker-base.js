@@ -14,7 +14,8 @@ const {
   WORK_ORDER_DEFAULT_PREFIX,
   WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
   WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
-  WORK_ORDER_FILE_RPC_METHODS,
+  FILE_RPC_METHODS,
+  FILE_TYPES,
   WORK_ORDER_COUNTERS_DB,
   WORK_ORDER_BLOBS_CORE,
   WORK_ORDER_COUNTER_KEY_PREFIX,
@@ -52,7 +53,7 @@ class WrkWorkOrderRack extends WrkInventoryRack {
         )
 
         const rpcServer = this.net_r0.rpcServer
-        for (const method of WORK_ORDER_FILE_RPC_METHODS) {
+        for (const method of FILE_RPC_METHODS) {
           rpcServer.respond(method, async (req) => {
             return await this.net_r0.handleReply(method, req)
           })
@@ -172,7 +173,12 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     return this.mem.things[req.id] || null
   }
 
-  async storeWorkOrderFile (req) {
+  _assertFileType (req) {
+    if (req.type !== FILE_TYPES.WORK_ORDER) throw new Error('ERR_FILE_TYPE_INVALID')
+  }
+
+  async storeFile (req) {
+    this._assertFileType(req)
     if (!req.workOrderId) throw new Error('ERR_WO_FILE_WORK_ORDER_ID_REQUIRED')
     if (!req.contentBase64 || typeof req.contentBase64 !== 'string') {
       throw new Error('ERR_WO_FILE_CONTENT_REQUIRED')
@@ -199,19 +205,21 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     }
   }
 
-  async loadWorkOrderFile (req) {
+  async loadFile (req) {
+    this._assertFileType(req)
     if (!req.blobRef) throw new Error('ERR_WO_FILE_BLOB_REF_REQUIRED')
     const buf = await this.workOrderBlobs.get(req.blobRef)
     if (!buf) throw new Error('ERR_WO_FILE_NOT_FOUND')
     return { contentBase64: buf.toString('base64') }
   }
 
-  async removeWorkOrderFile (req) {
+  async removeFile (req) {
+    this._assertFileType(req)
     if (!req.blobRef) throw new Error('ERR_WO_FILE_BLOB_REF_REQUIRED')
     try {
       await this.workOrderBlobs.clear(req.blobRef)
     } catch (e) {
-      console.error('[wo-rack] removeWorkOrderFile blob clear failed', { blobRef: req.blobRef, err: e?.message })
+      console.error('[wo-rack] removeFile blob clear failed', { blobRef: req.blobRef, err: e?.message })
     }
     return 1
   }
