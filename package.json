@@ -36,7 +36,6 @@
   },
   "dependencies": {
     "@bitfinex/bfx-svc-boot-js": "1.2.0",
-    "@fastify/multipart": "^10.0.0",
     "@tetherto/miningos-lib-stats": "git+https://github.com/tetherto/miningos-lib-stats.git",
     "@tetherto/miningos-tpl-wrk-thing": "git+https://github.com/tetherto/miningos-tpl-wrk-thing.git",
     "async": "3.2.6",

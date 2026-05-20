@@ -42,6 +42,23 @@ function newRack () {
   return r
 }
 
+const WO_FILE = { type: 'work_order' }
+
+function newFileRack ({ slave = false, blobs } = {}) {
+  const r = Object.create(WrkWorkOrderRack.prototype)
+  r.mem = { things: {} }
+  r.ctx = { slave }
+  r.workOrderFileMaxBytes = 10 * 1024 * 1024
+  r.workOrderFileMimeAllowlist = new Set(['text/plain'])
+  r.workOrderBlobs = blobs || {
+    put: async () => ({ blockOffset: 0, byteOffset: 0, blockLength: 1, byteLength: 4 }),
+    get: async () => Buffer.from('data'),
+    clear: async () => {}
+  }
+  r.debugError = () => {}
+  return r
+}
+
 test('wo-spike: _nextWorkOrderNumber increments per type with CAS', async (t) => {
   const r = newRack()
   const a = await r._nextWorkOrderNumber(2)
@@ -149,6 +166,73 @@ test('wo-spike: _validateUpdateThing validates warranty when provided', (t) => {
   r._validateUpdateThing({ id: 'wo-1', info: { warranty: { vendor: 'microbt', fields: { rmaNumber: 'X', faultCode: 'Y' } } } })
   // clearing warranty to null is allowed
   r._validateUpdateThing({ id: 'wo-1', info: { warranty: null } })
+})
+
+test('wo-file: every file method rejects a non-work_order type', async (t) => {
+  const r = newFileRack()
+  await t.exception(() => r.storeFile({ type: 'other' }), /ERR_FILE_TYPE_INVALID/)
+  await t.exception(() => r.loadFile({ type: 'other' }), /ERR_FILE_TYPE_INVALID/)
+  await t.exception(() => r.removeFile({ type: 'other' }), /ERR_FILE_TYPE_INVALID/)
+})
+
+test('wo-file: storeFile / removeFile are blocked on a slave node', async (t) => {
+  const r = newFileRack({ slave: true })
+  await t.exception(() => r.storeFile({ ...WO_FILE, workOrderId: 'wo-1' }), /ERR_SLAVE_BLOCK/)
+  await t.exception(() => r.removeFile({ ...WO_FILE, workOrderId: 'wo-1', fileId: 'f-1' }), /ERR_SLAVE_BLOCK/)
+})
+
+test('wo-file: storeFile requires the work order to exist', async (t) => {
+  const r = newFileRack()
+  await t.exception(
+    () => r.storeFile({ ...WO_FILE, workOrderId: 'missing', mime: 'text/plain', contentBase64: Buffer.from('hi').toString('base64') }),
+    /ERR_WO_FILE_WORK_ORDER_NOT_FOUND/
+  )
+})
+
+test('wo-file: storeFile stores a blob once the work order exists', async (t) => {
+  const r = newFileRack()
+  r.mem.things = { 'wo-1': { id: 'wo-1', info: {} } }
+  const meta = await r.storeFile({
+    ...WO_FILE,
+    workOrderId: 'wo-1',
+    name: 'n.txt',
+    mime: 'text/plain',
+    user: 'u',
+    contentBase64: Buffer.from('hi').toString('base64')
+  })
+  t.is(meta.mime, 'text/plain')
+  t.ok(meta.blobRef, 'returns a blob descriptor')
+})
+
+test('wo-file: loadFile / removeFile resolve the blob from the WO record by fileId', async (t) => {
+  const blobRef = { blockOffset: 1, byteOffset: 2, blockLength: 1, byteLength: 4 }
+  const r = newFileRack()
+  r.mem.things = { 'wo-1': { id: 'wo-1', info: { files: [{ id: 'f-1', blobRef }] } } }
+
+  const loaded = await r.loadFile({ ...WO_FILE, workOrderId: 'wo-1', fileId: 'f-1' })
+  t.is(loaded.contentBase64, Buffer.from('data').toString('base64'))
+
+  const out = await r.removeFile({ ...WO_FILE, workOrderId: 'wo-1', fileId: 'f-1' })
+  t.alike(out, { cleared: true })
+})
+
+test('wo-file: loadFile / removeFile reject a fileId not on the named work order', async (t) => {
+  const r = newFileRack()
+  r.mem.things = { 'wo-1': { id: 'wo-1', info: { files: [{ id: 'f-1', blobRef: {} }] } } }
+  await t.exception(() => r.loadFile({ ...WO_FILE, workOrderId: 'wo-1', fileId: 'f-x' }), /ERR_WO_FILE_NOT_FOUND/)
+  await t.exception(() => r.removeFile({ ...WO_FILE, workOrderId: 'wo-2', fileId: 'f-1' }), /ERR_WO_FILE_WORK_ORDER_NOT_FOUND/)
+})
+
+test('wo-file: removeFile reports cleared:false when the blob clear throws', async (t) => {
+  let logged = false
+  const r = newFileRack({
+    blobs: { put: async () => ({}), get: async () => Buffer.alloc(0), clear: async () => { throw new Error('boom') } }
+  })
+  r.debugError = () => { logged = true }
+  r.mem.things = { 'wo-1': { id: 'wo-1', info: { files: [{ id: 'f-1', blobRef: {} }] } } }
+  const out = await r.removeFile({ ...WO_FILE, workOrderId: 'wo-1', fileId: 'f-1' })
+  t.alike(out, { cleared: false }, 'caller can tell the blob clear failed')
+  t.ok(logged, 'failure is logged via debugError')
 })
 
 test('wo-spike: getThingType / getThingTags identify WOs', (t) => {

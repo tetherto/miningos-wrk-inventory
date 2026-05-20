@@ -177,9 +177,28 @@ class WrkWorkOrderRack extends WrkInventoryRack {
     if (req.type !== FILE_TYPES.WORK_ORDER) throw new Error('ERR_FILE_TYPE_INVALID')
   }
 
+  _requireWorkOrder (workOrderId) {
+    const wo = workOrderId ? this.mem.things[workOrderId] : null
+    if (!wo) throw new Error('ERR_WO_FILE_WORK_ORDER_NOT_FOUND')
+    return wo
+  }
+
+  // Resolves a file from the owning WO's info.files. blobRefs are never
+  // accepted as input — the caller names the WO + fileId and the rack
+  // owns the blob descriptor, so a leaked blobRef can't read a file
+  // outside its work order.
+  _requireWorkOrderFile (req) {
+    if (!req.fileId) throw new Error('ERR_WO_FILE_ID_REQUIRED')
+    const wo = this._requireWorkOrder(req.workOrderId)
+    const file = (wo.info?.files || []).find((f) => f.id === req.fileId)
+    if (!file) throw new Error('ERR_WO_FILE_NOT_FOUND')
+    return file
+  }
+
   async storeFile (req) {
     this._assertFileType(req)
-    if (!req.workOrderId) throw new Error('ERR_WO_FILE_WORK_ORDER_ID_REQUIRED')
+    if (this.ctx.slave) throw new Error('ERR_SLAVE_BLOCK')
+    this._requireWorkOrder(req.workOrderId)
     if (!req.contentBase64 || typeof req.contentBase64 !== 'string') {
       throw new Error('ERR_WO_FILE_CONTENT_REQUIRED')
     }
@@ -207,21 +226,24 @@ class WrkWorkOrderRack extends WrkInventoryRack {
 
   async loadFile (req) {
     this._assertFileType(req)
-    if (!req.blobRef) throw new Error('ERR_WO_FILE_BLOB_REF_REQUIRED')
-    const buf = await this.workOrderBlobs.get(req.blobRef)
+    const file = this._requireWorkOrderFile(req)
+    const buf = await this.workOrderBlobs.get(file.blobRef)
     if (!buf) throw new Error('ERR_WO_FILE_NOT_FOUND')
     return { contentBase64: buf.toString('base64') }
   }
 
   async removeFile (req) {
     this._assertFileType(req)
-    if (!req.blobRef) throw new Error('ERR_WO_FILE_BLOB_REF_REQUIRED')
+    if (this.ctx.slave) throw new Error('ERR_SLAVE_BLOCK')
+    const file = this._requireWorkOrderFile(req)
+    let cleared = true
     try {
-      await this.workOrderBlobs.clear(req.blobRef)
+      await this.workOrderBlobs.clear(file.blobRef)
     } catch (e) {
-      console.error('[wo-rack] removeFile blob clear failed', { blobRef: req.blobRef, err: e?.message })
+      cleared = false
+      this.debugError('ERR_WO_FILE_CLEAR_FAILED', e)
     }
-    return 1
+    return { cleared }
   }
 }
 
