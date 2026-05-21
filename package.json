@@ -21,11 +21,11 @@
   "files": [
     "worker.js",
     "workers/"
-  ],  
+  ],
   "type": "commonjs",
   "bin": {
     "miningos-wrk-inventory": "worker.js"
-  },    
+  },
   "scripts": {
     "lint": "standard",
     "lint:fix": "standard --fix",
@@ -36,9 +36,10 @@
   },
   "dependencies": {
     "@bitfinex/bfx-svc-boot-js": "1.2.0",
-    "async": "3.2.6",
     "@tetherto/miningos-lib-stats": "git+https://github.com/tetherto/miningos-lib-stats.git",
-    "@tetherto/miningos-tpl-wrk-thing": "git+https://github.com/tetherto/miningos-tpl-wrk-thing.git"
+    "@tetherto/miningos-tpl-wrk-thing": "git+https://github.com/tetherto/miningos-tpl-wrk-thing.git",
+    "async": "3.2.6",
+    "hyperblobs": "^2.12.0"
   },
   "devDependencies": {
     "brittle": "3.16.3",

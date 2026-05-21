@@ -217,6 +217,85 @@ test('worker-base: _validateUpdateThing should throw on parentDeviceType model m
   }, 'ERR_UPDATE_PARENT_DEVICE_TYPE_MODEL_MISMATCH')
 })
 
+test('worker-base: _validateUpdateThing rejects location/status changes without workOrderId', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    p1: { id: 'p1', info: { location: 'Lab', status: 'active' } }
+  }
+
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { location: 'Site Lab' } }),
+    /ERR_PART_MOVE_REQUIRES_WO/
+  )
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { status: 'in_repair' } }),
+    /ERR_PART_MOVE_REQUIRES_WO/
+  )
+})
+
+test('worker-base: _validateUpdateThing accepts location/status when workOrderId is present', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    p1: { id: 'p1', info: { location: 'Lab', status: 'active' } }
+  }
+
+  t.execution(() =>
+    worker._validateUpdateThing({ id: 'p1', info: { location: 'Site Lab', workOrderId: 'wo-1' } })
+  )
+})
+
+test('worker-base: _validateUpdateThing leaves non-move updates alone', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    p1: { id: 'p1', info: { serialNum: 'SN1', location: 'Lab', status: 'active' } }
+  }
+
+  t.execution(() =>
+    worker._validateUpdateThing({ id: 'p1', info: { serialNum: 'SN1' } })
+  )
+})
+
+test('worker-base: _validateLocation rejects values outside MINER_LOCATIONS', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'Site Lab', status: 'active' } } }
+
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { location: 'Workshop Lab', workOrderId: 'wo-1' } }),
+    /ERR_INVALID_LOCATION/
+  )
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { location: 'Field', workOrderId: 'wo-1' } }),
+    /ERR_INVALID_LOCATION/
+  )
+})
+
+test('worker-base: _validateLocation accepts every canonical MINER_LOCATIONS value', (t) => {
+  const { MINER_LOCATIONS } = require('../../workers/lib/constants')
+  const worker = createMockWorker()
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'Site Lab' } } }
+  for (const loc of MINER_LOCATIONS) {
+    t.execution(
+      () => worker._validateUpdateThing({ id: 'p1', info: { location: loc, workOrderId: 'wo-1' } }),
+      `accepts "${loc}"`
+    )
+  }
+})
+
+test('worker-base: _validateRegisterThing rejects unknown location', (t) => {
+  const worker = createMockWorker()
+  t.exception(
+    () => worker._validateRegisterThing({ info: { serialNum: 'SN9', location: 'Workshop Lab' } }),
+    /ERR_INVALID_LOCATION/
+  )
+})
+
+test('worker-base: _validateLocation noops when location is absent/null', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'Site Lab' } } }
+  t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { status: 'active', workOrderId: 'wo-1' } }))
+  t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { location: null, workOrderId: 'wo-1' } }))
+})
+
 test('worker-base: _validateRegisterThing should throw when info is missing', (t) => {
   const worker = createMockWorker()
   worker.mem.things = {}
