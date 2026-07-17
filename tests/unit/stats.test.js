@@ -78,3 +78,58 @@ test('stats: grouping function should return null when ext is missing', (t) => {
   t.is(groupFn({}, null), null)
   t.is(groupFn({}, undefined), null)
 })
+
+test('stats: spare part ops should filter out parts attached to a miner', (t) => {
+  const ops = libStats.specs.inventory.ops
+  const opNames = [
+    'spare_parts_cnt',
+    'spare_parts_type_group_cnt',
+    'spare_part_inventory_status_group_cnt',
+    'spare_part_inventory_location_group_cnt'
+  ]
+
+  for (const name of opNames) {
+    const filter = ops[name].filter
+    t.is(typeof filter, 'function', `${name} has a filter`)
+    t.is(filter({ info: { parentDeviceId: 'm1' } }), false, `${name} excludes parts with parentDeviceId`)
+    t.is(filter({ info: { parentDeviceSN: 'SN1' } }), false, `${name} excludes parts with parentDeviceSN`)
+    t.is(filter({ info: {} }), true, `${name} keeps unattached parts`)
+  }
+})
+
+test('stats: status group_cnt should only count unattached parts', (t) => {
+  const groupCnt = require('@tetherto/miningos-lib-stats/ops/group_cnt')
+  const op = libStats.specs.inventory.ops.spare_part_inventory_status_group_cnt
+
+  const things = [
+    { info: { status: 'ok_brand_new' } },
+    { info: { status: 'ok_brand_new' } },
+    { info: { status: 'in_operation', parentDeviceId: 'm1' } },
+    { info: { status: 'faulty', parentDeviceSN: 'SN1' } }
+  ]
+
+  let cur = null
+  for (const thg of things) {
+    cur = groupCnt.calc(op, cur, thg, thg)
+  }
+
+  t.alike(cur.res, { ok_brand_new: 2 })
+})
+
+test('stats: spare_parts_cnt should only count unattached parts', (t) => {
+  const cnt = require('@tetherto/miningos-lib-stats/ops/cnt')
+  const op = libStats.specs.inventory.ops.spare_parts_cnt
+
+  const things = [
+    { info: {} },
+    { info: { parentDeviceId: 'm1' } },
+    { info: { parentDeviceSN: 'SN1' } }
+  ]
+
+  let cur = null
+  for (const thg of things) {
+    cur = cnt.calc(op, cur, thg, thg)
+  }
+
+  t.is(cur.res, 1)
+})
