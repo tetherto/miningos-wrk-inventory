@@ -30,7 +30,7 @@ test('worker-base: getSpecTags should return inventory tag', (t) => {
 
 test('worker-base: selectThingInfo should return info object', (t) => {
   const worker = createMockWorker()
-  const thing = { info: { serialNum: '123', status: 'active' } }
+  const thing = { info: { serialNum: '123', status: 'in_operation' } }
   const result = worker.selectThingInfo(thing)
   t.alike(result, { info: thing.info })
 })
@@ -220,7 +220,7 @@ test('worker-base: _validateUpdateThing should throw on parentDeviceType model m
 test('worker-base: _validateUpdateThing rejects location/status changes without workOrderId', (t) => {
   const worker = createMockWorker()
   worker.mem.things = {
-    p1: { id: 'p1', info: { location: 'Lab', status: 'active' } }
+    p1: { id: 'p1', info: { location: 'Lab', status: 'in_operation' } }
   }
 
   t.exception(
@@ -228,7 +228,7 @@ test('worker-base: _validateUpdateThing rejects location/status changes without 
     /ERR_PART_MOVE_REQUIRES_WO/
   )
   t.exception(
-    () => worker._validateUpdateThing({ id: 'p1', info: { status: 'in_repair' } }),
+    () => worker._validateUpdateThing({ id: 'p1', info: { status: 'faulty' } }),
     /ERR_PART_MOVE_REQUIRES_WO/
   )
 })
@@ -236,7 +236,7 @@ test('worker-base: _validateUpdateThing rejects location/status changes without 
 test('worker-base: _validateUpdateThing accepts location/status when workOrderId is present', (t) => {
   const worker = createMockWorker()
   worker.mem.things = {
-    p1: { id: 'p1', info: { location: 'Lab', status: 'active' } }
+    p1: { id: 'p1', info: { location: 'Lab', status: 'in_operation' } }
   }
 
   t.execution(() =>
@@ -247,7 +247,7 @@ test('worker-base: _validateUpdateThing accepts location/status when workOrderId
 test('worker-base: _validateUpdateThing leaves non-move updates alone', (t) => {
   const worker = createMockWorker()
   worker.mem.things = {
-    p1: { id: 'p1', info: { serialNum: 'SN1', location: 'Lab', status: 'active' } }
+    p1: { id: 'p1', info: { serialNum: 'SN1', location: 'Lab', status: 'in_operation' } }
   }
 
   t.execution(() =>
@@ -257,7 +257,7 @@ test('worker-base: _validateUpdateThing leaves non-move updates alone', (t) => {
 
 test('worker-base: _validateLocation rejects values outside MINER_LOCATIONS', (t) => {
   const worker = createMockWorker()
-  worker.mem.things = { p1: { id: 'p1', info: { location: 'site.lab', status: 'active' } } }
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'site.lab', status: 'in_operation' } } }
 
   t.exception(
     () => worker._validateUpdateThing({ id: 'p1', info: { location: 'Workshop Lab', workOrderId: 'wo-1' } }),
@@ -289,10 +289,48 @@ test('worker-base: _validateRegisterThing rejects unknown location', (t) => {
   )
 })
 
+test('worker-base: _validateStatus rejects values outside PART_STATUSES', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'site.lab', status: 'ok_brand_new' } } }
+
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { status: 'active', workOrderId: 'wo-1' } }),
+    /ERR_INVALID_STATUS/
+  )
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { status: 'spare', workOrderId: 'wo-1' } }),
+    /ERR_INVALID_STATUS/
+  )
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { status: 'in_operaton', workOrderId: 'wo-1' } }),
+    /ERR_INVALID_STATUS/
+  )
+})
+
+test('worker-base: _validateStatus accepts every canonical PART_STATUSES value', (t) => {
+  const { PART_STATUSES } = require('../../workers/lib/constants')
+  const worker = createMockWorker()
+  worker.mem.things = { p1: { id: 'p1', info: { location: 'site.lab' } } }
+  for (const status of PART_STATUSES) {
+    t.execution(
+      () => worker._validateUpdateThing({ id: 'p1', info: { status, workOrderId: 'wo-1' } }),
+      `accepts "${status}"`
+    )
+  }
+})
+
+test('worker-base: _validateRegisterThing rejects unknown status', (t) => {
+  const worker = createMockWorker()
+  t.exception(
+    () => worker._validateRegisterThing({ info: { serialNum: 'SN9', status: 'spare' } }),
+    /ERR_INVALID_STATUS/
+  )
+})
+
 test('worker-base: _validateLocation noops when location is absent/null', (t) => {
   const worker = createMockWorker()
   worker.mem.things = { p1: { id: 'p1', info: { location: 'site.lab' } } }
-  t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { status: 'active', workOrderId: 'wo-1' } }))
+  t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { status: 'in_operation', workOrderId: 'wo-1' } }))
   t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { location: null, workOrderId: 'wo-1' } }))
 })
 

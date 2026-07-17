@@ -161,7 +161,7 @@ Register a new spare part in inventory.
   - `subType` (string): Part sub-type/model (e.g., `CB6_V5`)
   - `site` (string): Installation site name
   - `location` (string): Specific location within site
-  - `status` (string, optional): Operational status
+  - `status` (string, optional): Operational status, one of `ok_brand_new`, `ok_recovered`, `ok_repaired`, `in_operation`, `faulty`, `on_hold`, `scrapped`, `disposed`, `unknown`
 - `opts` (object, optional): Additional options
 
 **Example:**
@@ -178,7 +178,7 @@ hp-rpc-cli -s inventory -m registerThing -d '{
     "subType": "CB6_V5",
     "site": "Test",
     "location": "Lab - Rack A1",
-    "status": "active"
+    "status": "in_operation"
   },
   "opts": {}
 }'
@@ -207,7 +207,7 @@ Update existing device information.
 hp-rpc-cli -s inventory -m updateThing -d '{
   "id": "e33abf5e-1a81-4ec4-9b2a-ac80c953b2c9",
   "info": {
-    "status": "in_repair",
+    "status": "faulty",
     "location": "Repair Shop - Bench 3"
   }
 }'
@@ -250,7 +250,7 @@ hp-rpc-cli -s inventory -m listThings -d '{}'
       "parentDeviceModel": "wm",
       "subType": "CB6_V5",
       "site": "Test",
-      "status": "active"
+      "status": "in_operation"
     }
   }
 ]

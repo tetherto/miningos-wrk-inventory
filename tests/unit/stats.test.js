@@ -62,8 +62,8 @@ test('stats: type group_cnt grouping function should return field value', (t) =>
 test('stats: status group_cnt grouping function should resolve nested info.status', (t) => {
   const groupFn = libStats.specs.inventory.ops.spare_part_inventory_status_group_cnt.group
   const entry = {}
-  const ext = { info: { status: 'spare' } }
-  t.is(groupFn(entry, ext), 'spare')
+  const ext = { info: { status: 'ok_brand_new' } }
+  t.is(groupFn(entry, ext), 'ok_brand_new')
 })
 
 test('stats: location group_cnt grouping function should resolve nested info.location', (t) => {

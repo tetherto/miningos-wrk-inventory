@@ -58,6 +58,8 @@ const WORK_ORDER_VALID_DEVICE_TYPES = ['miner', 'psu', 'hashboard', 'controller'
 
 const MINER_LOCATIONS = ['workshop.warehouse', 'workshop.lab', 'site.warehouse', 'site.lab', 'site.container', 'miner.room', 'vendor', 'acme.container', 'scrapped', 'disposed', 'unknown']
 
+const PART_STATUSES = ['ok_brand_new', 'ok_recovered', 'ok_repaired', 'in_operation', 'faulty', 'on_hold', 'scrapped', 'disposed', 'unknown']
+
 const SPARE_PART_INITIAL_LOCATION = 'site.warehouse'
 
 const WORK_ORDER_FILE_MAX_BYTES_DEFAULT = 10 * 1024 * 1024
@@ -94,5 +96,6 @@ module.exports = {
   WORK_ORDER_COUNTER_CAS_MAX_ATTEMPTS,
   WORK_ORDER_VALID_DEVICE_TYPES,
   SPARE_PART_INITIAL_LOCATION,
-  MINER_LOCATIONS
+  MINER_LOCATIONS,
+  PART_STATUSES
 }
