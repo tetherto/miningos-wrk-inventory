@@ -2,7 +2,15 @@
 
 const test = require('brittle')
 const WrkWorkOrderRack = require('../../workers/lib/workorder-worker-base')
-const { WORK_ORDER_STATUSES, WORK_ORDER_TYPES } = require('../../workers/lib/constants')
+const WrkInventoryRack = require('../../workers/lib/worker-base')
+const {
+  WORK_ORDER_STATUSES,
+  WORK_ORDER_TYPES,
+  WORK_ORDER_DEFAULT_PREFIX,
+  WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
+  WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
+  FILE_RPC_METHODS
+} = require('../../workers/lib/constants')
 
 class MockBee {
   constructor () {
@@ -77,6 +85,82 @@ test('wo-spike: 10 concurrent _nextWorkOrderNumber calls are collision-free', as
   t.is(new Set(nums).size, 10)
 })
 
+test('wo-start: _start wires counters, blobs, default file limits and RPC handlers', async (t) => {
+  const parent = WrkInventoryRack.prototype
+  const original = parent._start
+  parent._start = function (cb) { cb() }
+
+  const respondCalls = []
+  const handleReplyCalls = []
+
+  try {
+    const r = Object.create(WrkWorkOrderRack.prototype)
+    r.conf = { thing: {} }
+    r.db = { sub: () => new MockBee() }
+    r.store_s1 = { getCore: () => ({ ready: async () => {} }) }
+    r.net_r0 = {
+      rpcServer: { respond: (method, handler) => respondCalls.push([method, handler]) },
+      handleReply: async (method, req) => { handleReplyCalls.push([method, req]); return { ok: true } }
+    }
+
+    const err = await new Promise((resolve) => r._start(resolve))
+    t.absent(err, '_start completes without error')
+
+    t.is(r.workOrderPrefix, WORK_ORDER_DEFAULT_PREFIX)
+    t.ok(r.workOrderCounters, 'workOrderCounters is set')
+    t.ok(r.workOrderBlobs, 'workOrderBlobs is set')
+    t.is(r.workOrderFileMaxBytes, WORK_ORDER_FILE_MAX_BYTES_DEFAULT)
+    t.alike([...r.workOrderFileMimeAllowlist], WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT)
+
+    t.is(respondCalls.length, FILE_RPC_METHODS.length)
+    t.alike(respondCalls.map(([method]) => method), FILE_RPC_METHODS)
+
+    const [method, handler] = respondCalls[0]
+    const result = await handler({ some: 'req' })
+    t.alike(result, { ok: true }, 'handler delegates to net_r0.handleReply')
+    t.alike(handleReplyCalls[0], [method, { some: 'req' }])
+  } finally {
+    parent._start = original
+  }
+})
+
+test('wo-start: _start honors caller-supplied prefix and file limits from conf', async (t) => {
+  const parent = WrkInventoryRack.prototype
+  const original = parent._start
+  parent._start = function (cb) { cb() }
+
+  try {
+    const r = Object.create(WrkWorkOrderRack.prototype)
+    r.conf = {
+      thing: {
+        workOrderPrefix: 'CUSTOM',
+        workOrderFileMaxBytes: 123,
+        workOrderFileMimeAllowlist: ['application/x-custom']
+      }
+    }
+    r.db = { sub: () => new MockBee() }
+    r.store_s1 = { getCore: () => ({ ready: async () => {} }) }
+    r.net_r0 = {
+      rpcServer: { respond: () => {} },
+      handleReply: async () => {}
+    }
+
+    await new Promise((resolve) => r._start(resolve))
+
+    t.is(r.workOrderPrefix, 'CUSTOM')
+    t.is(r.workOrderFileMaxBytes, 123)
+    t.alike([...r.workOrderFileMimeAllowlist], ['application/x-custom'])
+  } finally {
+    parent._start = original
+  }
+})
+
+test('wo-spike: selectThingInfo returns only the info payload', (t) => {
+  const r = newRack()
+  const thing = { id: 'wo-1', info: { type: 1 }, extra: 'ignored' }
+  t.alike(r.selectThingInfo(thing), { info: thing.info })
+})
+
 test('wo-spike: _validateRegisterThing rejects bad type / missing fields and fills defaults', (t) => {
   const r = newRack()
   t.exception(() => r._validateRegisterThing({}), /ERR_THING_VALIDATE_INFO_INVALID/)
@@ -133,6 +217,28 @@ test('wo-spike: _validateRegisterThing rejects invalid warranty payload', (t) =>
   t.is(valid.info.warranty.vendor, 'microbt')
 })
 
+test('wo-spike: _validateRegisterThing rejects missing deviceModel / deviceIdentifier', (t) => {
+  const r = newRack()
+  t.exception(
+    () => r._validateRegisterThing({ info: { type: WORK_ORDER_TYPES.MOVE, deviceType: 'miner', deviceIdentifier: 'd' } }),
+    /ERR_WO_DEVICE_MODEL_INVALID/
+  )
+  t.exception(
+    () => r._validateRegisterThing({ info: { type: WORK_ORDER_TYPES.MOVE, deviceType: 'miner', deviceModel: 'm' } }),
+    /ERR_WO_DEVICE_IDENTIFIER_INVALID/
+  )
+})
+
+test('wo-spike: _validateRegisterThing requires issue for MICROBT_NON_MINER too', (t) => {
+  const r = newRack()
+  const base = { type: WORK_ORDER_TYPES.MICROBT_NON_MINER, deviceType: 'psu', deviceModel: 'm', deviceIdentifier: 'd' }
+  t.exception(() => r._validateRegisterThing({ info: { ...base } }), /ERR_WO_ISSUE_INVALID/)
+
+  const valid = { info: { ...base, issue: 'broken' } }
+  r._validateRegisterThing(valid)
+  t.is(valid.info.status, WORK_ORDER_STATUSES.OPEN)
+})
+
 test('wo-spike: _validateUpdateThing enforces transitions and terminal-state guard', (t) => {
   const r = newRack()
   r.mem.things = {
@@ -161,6 +267,15 @@ test('wo-spike: _validateUpdateThing enforces transitions and terminal-state gua
 
   // unknown id
   t.exception(() => r._validateUpdateThing({ id: 'nope', info: {} }), /ERR_THING_NOTFOUND/)
+})
+
+test('wo-spike: _validateUpdateThing rejects a disallowed non-terminal transition (in_progress -> open)', (t) => {
+  const r = newRack()
+  r.mem.things = { wip: { id: 'wip', info: { status: WORK_ORDER_STATUSES.IN_PROGRESS } } }
+  t.exception(
+    () => r._validateUpdateThing({ id: 'wip', info: { status: WORK_ORDER_STATUSES.OPEN } }),
+    /ERR_WO_INVALID_STATUS_TRANSITION/
+  )
 })
 
 test('wo-spike: _validateUpdateThing keeps auto-closed REGISTER/MOVE WOs editable', (t) => {
@@ -205,6 +320,74 @@ test('wo-spike: _validateUpdateThing validates warranty when provided', (t) => {
   r._validateUpdateThing({ id: 'wo-1', info: { warranty: null } })
 })
 
+test('wo-spike: registerThing auto-generates a code from prefix, type and counter', async (t) => {
+  const parent = Object.getPrototypeOf(WrkWorkOrderRack.prototype)
+  const original = parent.registerThing
+  let receivedReq = null
+  parent.registerThing = async function (req) {
+    receivedReq = req
+    this.mem.things[req.id] = { id: req.id, code: req.code, info: req.info }
+  }
+
+  try {
+    const r = newRack()
+    const result = await r.registerThing({ id: 'wo-1', info: { type: WORK_ORDER_TYPES.MICROBT_MINER } })
+    t.is(receivedReq.code, `IVI-${WORK_ORDER_TYPES.MICROBT_MINER}-0001`)
+    t.is(result.id, 'wo-1')
+    t.is(result.code, receivedReq.code)
+  } finally {
+    parent.registerThing = original
+  }
+})
+
+test('wo-spike: registerThing keeps a caller-supplied code and skips counter generation', async (t) => {
+  const parent = Object.getPrototypeOf(WrkWorkOrderRack.prototype)
+  const original = parent.registerThing
+  parent.registerThing = async function (req) {
+    this.mem.things[req.id] = { id: req.id, code: req.code, info: req.info }
+  }
+
+  try {
+    const r = newRack()
+    const result = await r.registerThing({ id: 'wo-2', code: 'MANUAL-1', info: { type: WORK_ORDER_TYPES.MOVE } })
+    t.is(result.code, 'MANUAL-1')
+    t.is(r._workOrderCounterCache, undefined, 'counter cache untouched when code is supplied')
+  } finally {
+    parent.registerThing = original
+  }
+})
+
+test('wo-spike: registerThing returns null when the thing was not stored', async (t) => {
+  const parent = Object.getPrototypeOf(WrkWorkOrderRack.prototype)
+  const original = parent.registerThing
+  parent.registerThing = async function () {}
+
+  try {
+    const r = newRack()
+    const result = await r.registerThing({ id: 'missing', info: { type: WORK_ORDER_TYPES.MOVE } })
+    t.is(result, null)
+  } finally {
+    parent.registerThing = original
+  }
+})
+
+test('wo-spike: updateThing delegates to super.updateThing and returns the stored thing', async (t) => {
+  const parent = Object.getPrototypeOf(WrkWorkOrderRack.prototype)
+  const original = parent.updateThing
+  parent.updateThing = async function (req) {
+    this.mem.things[req.id] = { id: req.id, info: req.info }
+  }
+
+  try {
+    const r = newRack()
+    const result = await r.updateThing({ id: 'wo-1', info: { status: WORK_ORDER_STATUSES.CLOSED } })
+    t.is(result.id, 'wo-1')
+    t.is(result.info.status, WORK_ORDER_STATUSES.CLOSED)
+  } finally {
+    parent.updateThing = original
+  }
+})
+
 test('wo-file: every file method rejects a non-work_order type', async (t) => {
   const r = newFileRack()
   await t.exception(() => r.storeFile({ type: 'other' }), /ERR_FILE_TYPE_INVALID/)
@@ -223,6 +406,40 @@ test('wo-file: storeFile requires the work order to exist', async (t) => {
   await t.exception(
     () => r.storeFile({ ...WO_FILE, workOrderId: 'missing', mime: 'text/plain', contentBase64: Buffer.from('hi').toString('base64') }),
     /ERR_WO_FILE_WORK_ORDER_NOT_FOUND/
+  )
+})
+
+test('wo-file: storeFile requires contentBase64', async (t) => {
+  const r = newFileRack()
+  r.mem.things = { 'wo-1': { id: 'wo-1', info: {} } }
+  await t.exception(
+    () => r.storeFile({ ...WO_FILE, workOrderId: 'wo-1', mime: 'text/plain' }),
+    /ERR_WO_FILE_CONTENT_REQUIRED/
+  )
+})
+
+test('wo-file: storeFile rejects a disallowed mime type', async (t) => {
+  const r = newFileRack()
+  r.mem.things = { 'wo-1': { id: 'wo-1', info: {} } }
+  await t.exception(
+    () => r.storeFile({
+      ...WO_FILE,
+      workOrderId: 'wo-1',
+      mime: 'application/x-evil',
+      contentBase64: Buffer.from('hi').toString('base64')
+    }),
+    /ERR_FILE_MIME_NOT_ALLOWED/
+  )
+})
+
+test('wo-file: storeFile rejects content larger than workOrderFileMaxBytes', async (t) => {
+  const r = newFileRack()
+  r.workOrderFileMaxBytes = 2
+  r.mem.things = { 'wo-1': { id: 'wo-1', info: {} } }
+  const contentBase64 = Buffer.from('this is definitely too large').toString('base64')
+  await t.exception(
+    () => r.storeFile({ ...WO_FILE, workOrderId: 'wo-1', mime: 'text/plain', contentBase64 }),
+    /ERR_FILE_TOO_LARGE/
   )
 })
 
