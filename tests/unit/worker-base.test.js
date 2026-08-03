@@ -9,6 +9,45 @@ function createMockWorker () {
   return worker
 }
 
+test('worker-base: init should delegate to super.init', (t) => {
+  const parent = Object.getPrototypeOf(WrkInventoryRack.prototype)
+  const original = parent.init
+  let called = false
+  parent.init = function () { called = true }
+  try {
+    const worker = createMockWorker()
+    worker.init()
+    t.ok(called, 'super.init was invoked')
+  } finally {
+    parent.init = original
+  }
+})
+
+test('worker-base: _start should call super._start then whitelist the rack actions', (t) => {
+  const parent = Object.getPrototypeOf(WrkInventoryRack.prototype)
+  const original = parent._start
+  parent._start = function (cb) { cb() }
+  try {
+    const worker = createMockWorker()
+    let whitelisted = null
+    worker.miningosThgWriteCalls_0 = {
+      whitelistActions: (actions) => { whitelisted = actions }
+    }
+
+    let cbErr = 'not-called'
+    worker._start((err) => { cbErr = err })
+
+    t.absent(cbErr, '_start callback invoked without error')
+    t.alike(whitelisted, [
+      ['registerThing', 1],
+      ['updateThing', 1],
+      ['forgetThings', 1]
+    ])
+  } finally {
+    parent._start = original
+  }
+})
+
 test('worker-base: getThingType should return inventory', (t) => {
   const worker = createMockWorker()
   t.is(worker.getThingType(), 'inventory')
