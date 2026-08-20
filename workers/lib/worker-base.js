@@ -2,7 +2,7 @@
 
 const async = require('async')
 const WrkRack = require('@tetherto/miningos-tpl-wrk-thing/workers/rack.thing.wrk')
-const { MINER_LOCATIONS, MAC_ADDRESS_RX } = require('./constants')
+const { MINER_LOCATIONS, MAC_ADDRESS_RX, MAC_MULTICAST_BIT } = require('./constants')
 
 const MINER_LOCATIONS_SET = new Set(MINER_LOCATIONS)
 
@@ -66,7 +66,8 @@ class WrkInventoryRack extends WrkRack {
       }
       if (
         t.info?.macAddress &&
-        t.info.macAddress.toLowerCase() === data.info?.macAddress?.toLowerCase()
+        data.info?.macAddress &&
+        this._normalizeMacAddress(t.info.macAddress) === this._normalizeMacAddress(data.info.macAddress)
       ) {
         throw new Error('ERR_THING_MACADDRESS_EXISTS')
       }
@@ -87,9 +88,13 @@ class WrkInventoryRack extends WrkRack {
     if (typeof mac !== 'string' || !MAC_ADDRESS_RX.test(mac)) {
       throw new Error('ERR_THING_MACADDRESS_INVALID')
     }
-    if (parseInt(mac.slice(0, 2), 16) & 1) {
+    if (parseInt(mac.slice(0, 2), 16) & MAC_MULTICAST_BIT) {
       throw new Error('ERR_THING_MACADDRESS_MULTICAST')
     }
+  }
+
+  _normalizeMacAddress (mac) {
+    return String(mac).toLowerCase().replace(/-/g, ':')
   }
 
   _validateUpdateThing (data) {

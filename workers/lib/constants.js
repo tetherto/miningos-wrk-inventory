@@ -58,7 +58,9 @@ const WORK_ORDER_VALID_DEVICE_TYPES = ['miner', 'psu', 'hashboard', 'controller'
 
 const MINER_LOCATIONS = ['workshop.warehouse', 'workshop.lab', 'site.warehouse', 'site.lab', 'site.container', 'miner.room', 'vendor', 'acme.container', 'scrapped', 'disposed', 'unknown']
 
-const MAC_ADDRESS_RX = /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/
+const MAC_ADDRESS_RX = /^[0-9A-Fa-f]{2}([:-])(?:[0-9A-Fa-f]{2}\1){4}[0-9A-Fa-f]{2}$/
+
+const MAC_MULTICAST_BIT = 0x01
 
 const SPARE_PART_INITIAL_LOCATION = 'site.warehouse'
 
@@ -97,5 +99,6 @@ module.exports = {
   WORK_ORDER_VALID_DEVICE_TYPES,
   SPARE_PART_INITIAL_LOCATION,
   MINER_LOCATIONS,
-  MAC_ADDRESS_RX
+  MAC_ADDRESS_RX,
+  MAC_MULTICAST_BIT
 }

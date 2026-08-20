@@ -130,6 +130,25 @@ test('worker-base: _validatePartDataChange should throw on duplicate macAddress'
   }, 'ERR_THING_MACADDRESS_EXISTS')
 })
 
+test('worker-base: _validatePartDataChange should throw on duplicate macAddress with different separators', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    thing1: {
+      id: 'thing1',
+      info: { macAddress: 'AA:BB:CC:DD:EE:FF' }
+    }
+  }
+
+  const data = {
+    id: 'thing2',
+    info: { macAddress: 'aa-bb-cc-dd-ee-ff' }
+  }
+
+  t.exception(() => {
+    worker._validatePartDataChange(data)
+  }, 'ERR_THING_MACADDRESS_EXISTS')
+})
+
 test('worker-base: _validatePartDataChange should not throw for same thing', (t) => {
   const worker = createMockWorker()
   worker.mem.things = {
@@ -344,6 +363,8 @@ test('worker-base: _validateMacAddress rejects malformed values', (t) => {
     'AA:BB:CC:DD:EE:GG',
     'AA.BB.CC.DD.EE.FF',
     ' AA:BB:CC:DD:EE:FF',
+    'AA:BB-CC:DD-EE:FF',
+    'AA-BB-CC-DD-EE:FF',
     123
   ]
   for (const macAddress of badMacs) {
