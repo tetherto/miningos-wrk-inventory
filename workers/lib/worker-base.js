@@ -5,6 +5,7 @@ const WrkRack = require('@tetherto/miningos-tpl-wrk-thing/workers/rack.thing.wrk
 const { MINER_LOCATIONS } = require('./constants')
 
 const MINER_LOCATIONS_SET = new Set(MINER_LOCATIONS)
+const MAC_ADDRESS_RX = /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/
 
 class WrkInventoryRack extends WrkRack {
   init () {
@@ -81,7 +82,19 @@ class WrkInventoryRack extends WrkRack {
     }
   }
 
+  _validateMacAddress (data) {
+    const mac = data.info?.macAddress
+    if (mac === undefined || mac === null || mac === '') return
+    if (typeof mac !== 'string' || !MAC_ADDRESS_RX.test(mac)) {
+      throw new Error('ERR_THING_MACADDRESS_INVALID')
+    }
+    if (parseInt(mac.slice(0, 2), 16) & 1) {
+      throw new Error('ERR_THING_MACADDRESS_MULTICAST')
+    }
+  }
+
   _validateUpdateThing (data) {
+    this._validateMacAddress(data)
     this._validatePartDataChange(data)
     this._validateParentDeviceData(data)
     this._validateLocation(data)
@@ -130,6 +143,7 @@ class WrkInventoryRack extends WrkRack {
     if (!data.info) {
       throw new Error('ERR_THING_VALIDATE_INFO_INVALID')
     }
+    this._validateMacAddress(data)
     this._validatePartDataChange(data)
     this._validateParentDeviceData(data)
     this._validateLocation(data)
