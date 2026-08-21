@@ -130,6 +130,25 @@ test('worker-base: _validatePartDataChange should throw on duplicate macAddress'
   }, 'ERR_THING_MACADDRESS_EXISTS')
 })
 
+test('worker-base: _validatePartDataChange should throw on duplicate macAddress with different separators', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    thing1: {
+      id: 'thing1',
+      info: { macAddress: 'AA:BB:CC:DD:EE:FF' }
+    }
+  }
+
+  const data = {
+    id: 'thing2',
+    info: { macAddress: 'aa-bb-cc-dd-ee-ff' }
+  }
+
+  t.exception(() => {
+    worker._validatePartDataChange(data)
+  }, 'ERR_THING_MACADDRESS_EXISTS')
+})
+
 test('worker-base: _validatePartDataChange should not throw for same thing', (t) => {
   const worker = createMockWorker()
   worker.mem.things = {
@@ -333,6 +352,90 @@ test('worker-base: _validateLocation noops when location is absent/null', (t) =>
   worker.mem.things = { p1: { id: 'p1', info: { location: 'site.lab' } } }
   t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { status: 'active', workOrderId: 'wo-1' } }))
   t.execution(() => worker._validateUpdateThing({ id: 'p1', info: { location: null, workOrderId: 'wo-1' } }))
+})
+
+test('worker-base: _validateMacAddress rejects malformed values', (t) => {
+  const worker = createMockWorker()
+  const badMacs = [
+    'AA:BB:CC:DD:EE',
+    'AA:BB:CC:DD:EE:FF:00',
+    'AABBCCDDEEFF',
+    'AA:BB:CC:DD:EE:GG',
+    'AA.BB.CC.DD.EE.FF',
+    ' AA:BB:CC:DD:EE:FF',
+    'AA:BB-CC:DD-EE:FF',
+    'AA-BB-CC-DD-EE:FF',
+    123
+  ]
+  for (const macAddress of badMacs) {
+    t.exception(
+      () => worker._validateMacAddress({ info: { macAddress } }),
+      /ERR_THING_MACADDRESS_INVALID/,
+      `rejects "${macAddress}"`
+    )
+  }
+})
+
+test('worker-base: _validateMacAddress rejects multicast addresses', (t) => {
+  const worker = createMockWorker()
+  const multicastMacs = ['01:00:5E:00:00:01', '33:33:00:00:00:01', 'ff:ff:ff:ff:ff:ff', '0B:AA:BB:CC:DD:EE']
+  for (const macAddress of multicastMacs) {
+    t.exception(
+      () => worker._validateMacAddress({ info: { macAddress } }),
+      /ERR_THING_MACADDRESS_MULTICAST/,
+      `rejects "${macAddress}"`
+    )
+  }
+})
+
+test('worker-base: _validateMacAddress accepts valid unicast addresses', (t) => {
+  const worker = createMockWorker()
+  const validMacs = ['00:1A:2B:3C:4D:5E', 'aa:bb:cc:dd:ee:ff', 'AA-BB-CC-DD-EE-FF', '02:00:00:00:00:01']
+  for (const macAddress of validMacs) {
+    t.execution(
+      () => worker._validateMacAddress({ info: { macAddress } }),
+      `accepts "${macAddress}"`
+    )
+  }
+})
+
+test('worker-base: _validateMacAddress noops when macAddress is absent or empty', (t) => {
+  const worker = createMockWorker()
+  t.execution(() => worker._validateMacAddress({ info: { serialNum: 'SN1' } }))
+  t.execution(() => worker._validateMacAddress({ info: { macAddress: null } }))
+  t.execution(() => worker._validateMacAddress({ info: { macAddress: '' } }))
+  t.execution(() => worker._validateMacAddress({}))
+})
+
+test('worker-base: _validateRegisterThing rejects invalid macAddress', (t) => {
+  const worker = createMockWorker()
+  t.exception(
+    () => worker._validateRegisterThing({ info: { serialNum: 'SN9', macAddress: 'not-a-mac' } }),
+    /ERR_THING_MACADDRESS_INVALID/
+  )
+  t.exception(
+    () => worker._validateRegisterThing({ info: { serialNum: 'SN9', macAddress: '01:00:5E:00:00:01' } }),
+    /ERR_THING_MACADDRESS_MULTICAST/
+  )
+})
+
+test('worker-base: _validateUpdateThing rejects invalid macAddress', (t) => {
+  const worker = createMockWorker()
+  worker.mem.things = {
+    p1: { id: 'p1', info: { serialNum: 'SN1' } }
+  }
+
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { macAddress: 'not-a-mac' } }),
+    /ERR_THING_MACADDRESS_INVALID/
+  )
+  t.exception(
+    () => worker._validateUpdateThing({ id: 'p1', info: { macAddress: '33:33:00:00:00:01' } }),
+    /ERR_THING_MACADDRESS_MULTICAST/
+  )
+  t.execution(
+    () => worker._validateUpdateThing({ id: 'p1', info: { macAddress: '00:1A:2B:3C:4D:5E' } })
+  )
 })
 
 test('worker-base: _validateRegisterThing should throw when info is missing', (t) => {
