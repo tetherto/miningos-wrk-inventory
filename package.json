@@ -35,7 +35,7 @@
     "dev": "node worker.js --wtype wrk-inventory-rack-miner_part-psu --env development --rack rack-1"
   },
   "dependencies": {
-    "@bitfinex/bfx-svc-boot-js": "1.2.0",
+    "@bitfinex/bfx-svc-boot-js": "1.3.1",
     "@tetherto/miningos-lib-stats": "git+https://github.com/tetherto/miningos-lib-stats.git",
     "@tetherto/miningos-tpl-wrk-thing": "git+https://github.com/tetherto/miningos-tpl-wrk-thing.git",
     "async": "3.2.6",
