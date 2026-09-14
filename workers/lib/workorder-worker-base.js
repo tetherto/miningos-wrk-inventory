@@ -12,6 +12,7 @@ const {
   WORK_ORDER_TERMINAL_STATUSES,
   WORK_ORDER_VALID_TRANSITIONS,
   WORK_ORDER_DEFAULT_PREFIX,
+  WORK_ORDER_COMMENT_KINDS,
   WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
   WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
   FILE_RPC_METHODS,
@@ -175,6 +176,40 @@ class WrkWorkOrderRack extends WrkInventoryRack {
   async updateThing (req) {
     await super.updateThing(req)
     return this.mem.things[req.id] || null
+  }
+
+  async saveThingComment (req) {
+    if (req.kind === undefined) return super.saveThingComment(req)
+    if (!WORK_ORDER_COMMENT_KINDS.has(req.kind)) throw new Error('ERR_WO_COMMENT_KIND_INVALID')
+
+    this._checkWriteAccessToThing(req)
+
+    const thg = await this._loadThing(req)
+
+    if (!Array.isArray(thg.comments)) thg.comments = []
+
+    thg.comments.push({
+      id: this._generateThingId(),
+      ts: Date.now(),
+      comment: req.comment,
+      user: req.user,
+      kind: req.kind,
+      ...(req.pos ? { pos: req.pos } : {})
+    })
+
+    await this._saveThing(thg)
+
+    return 1
+  }
+
+  listThings (req) {
+    const things = super.listThings(req)
+    if (req.commentsKind === undefined) return things
+
+    return things.map((thg) => ({
+      ...thg,
+      comments: (thg.comments || []).filter((c) => (c.kind ?? null) === req.commentsKind)
+    }))
   }
 
   _assertFileType (req) {

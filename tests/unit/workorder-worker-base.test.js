@@ -504,3 +504,84 @@ test('wo-spike: getThingType / getThingTags identify WOs', (t) => {
     parent.getThingTags = originalTags
   }
 })
+
+function newCommentRack ({ slave = false } = {}) {
+  const r = Object.create(WrkWorkOrderRack.prototype)
+  const wo = { id: 'wo-1', code: 'IVI-3-0001', type: 'inventory-work_order', tags: [], info: { status: 'open' }, comments: [] }
+  r.ctx = { slave }
+  r.mem = { things: { 'wo-1': wo } }
+  r.things = new MockBee()
+  r.things.data.set('wo-1', JSON.stringify(wo))
+  return r
+}
+
+test('wo-comment: saveThingComment with kind persists a tagged entry', async (t) => {
+  const r = newCommentRack()
+  const res = await r.saveThingComment({ thingId: 'wo-1', comment: 'original PSU had scorch marks', user: 'tech@x', kind: 'note' })
+  t.is(res, 1)
+  const stored = JSON.parse(r.things.data.get('wo-1'))
+  t.is(stored.comments.length, 1)
+  const entry = stored.comments[0]
+  t.ok(entry.id)
+  t.ok(entry.ts)
+  t.is(entry.comment, 'original PSU had scorch marks')
+  t.is(entry.user, 'tech@x')
+  t.is(entry.kind, 'note')
+  t.is(r.mem.things['wo-1'].comments.length, 1, 'mem mirror updated')
+})
+
+test('wo-comment: saveThingComment without kind keeps the legacy entry shape', async (t) => {
+  const r = newCommentRack()
+  const res = await r.saveThingComment({ thingId: 'wo-1', comment: 'reseated PSU connector', user: 'tech@x' })
+  t.is(res, 1)
+  const entry = JSON.parse(r.things.data.get('wo-1')).comments[0]
+  t.is(entry.comment, 'reseated PSU connector')
+  t.absent('kind' in entry, 'no kind key on untagged entries')
+})
+
+test('wo-comment: saveThingComment rejects unknown kinds', async (t) => {
+  const r = newCommentRack()
+  await t.exception(() => r.saveThingComment({ thingId: 'wo-1', comment: 'x', user: 'u', kind: 'bogus' }), /ERR_WO_COMMENT_KIND_INVALID/)
+  const stored = JSON.parse(r.things.data.get('wo-1'))
+  t.is(stored.comments.length, 0, 'nothing persisted')
+})
+
+test('wo-comment: saveThingComment with kind is blocked on slaves and missing things', async (t) => {
+  const slave = newCommentRack({ slave: true })
+  await t.exception(() => slave.saveThingComment({ thingId: 'wo-1', comment: 'x', user: 'u', kind: 'note' }), /ERR_SLAVE_BLOCK/)
+
+  const r = newCommentRack()
+  await t.exception(() => r.saveThingComment({ thingId: 'wo-2', comment: 'x', user: 'u', kind: 'note' }), /ERR_THING_NOTFOUND/)
+})
+
+test('wo-comment: listThings filters comments by commentsKind', (t) => {
+  const r = Object.create(WrkWorkOrderRack.prototype)
+  r.rackId = 'rack-1'
+  r.mem = {
+    things: {
+      'wo-1': {
+        id: 'wo-1',
+        code: 'IVI-3-0001',
+        type: 'inventory-work_order',
+        tags: [],
+        info: { status: 'open' },
+        comments: [
+          { id: 'c-1', ts: 1, comment: 'inspected miner', user: 'a' },
+          { id: 'c-2', ts: 2, comment: 'correction: HB-2 was faulty', user: 'a', kind: 'note' },
+          { id: 'c-3', ts: 3, comment: 'swapped PSU', user: 'b' }
+        ]
+      }
+    }
+  }
+
+  const notes = r.listThings({ commentsKind: 'note' })
+  t.is(notes.length, 1)
+  t.alike(notes[0].comments.map((c) => c.id), ['c-2'])
+
+  const log = r.listThings({ commentsKind: null })
+  t.alike(log[0].comments.map((c) => c.id), ['c-1', 'c-3'])
+
+  const all = r.listThings({})
+  t.is(all[0].comments.length, 3, 'no filter without commentsKind')
+  t.is(r.mem.things['wo-1'].comments.length, 3, 'stored comments untouched')
+})
