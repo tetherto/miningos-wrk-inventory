@@ -54,6 +54,8 @@ const WORK_ORDER_VALID_TRANSITIONS = {
 
 const WORK_ORDER_DEFAULT_PREFIX = 'IVI'
 
+const WORK_ORDER_COMMENT_KINDS = new Set(['note'])
+
 const WORK_ORDER_VALID_DEVICE_TYPES = ['miner', 'psu', 'hashboard', 'controller']
 
 const MINER_LOCATIONS = ['workshop.warehouse', 'workshop.lab', 'site.warehouse', 'site.lab', 'site.container', 'miner.room', 'vendor', 'acme.container', 'scrapped', 'disposed', 'unknown']
@@ -88,6 +90,7 @@ module.exports = {
   WORK_ORDER_TERMINAL_STATUSES,
   WORK_ORDER_VALID_TRANSITIONS,
   WORK_ORDER_DEFAULT_PREFIX,
+  WORK_ORDER_COMMENT_KINDS,
   WORK_ORDER_FILE_MAX_BYTES_DEFAULT,
   WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT,
   FILE_RPC_METHODS,
