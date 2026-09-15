@@ -69,6 +69,7 @@ const SPARE_PART_INITIAL_LOCATION = 'site.warehouse'
 const WORK_ORDER_FILE_MAX_BYTES_DEFAULT = 10 * 1024 * 1024
 const WORK_ORDER_FILE_MIME_ALLOWLIST_DEFAULT = [
   'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+  'image/heic', 'image/heif',
   'application/pdf', 'text/plain', 'text/csv', 'application/json'
 ]
 const FILE_RPC_METHODS = ['storeFile', 'loadFile', 'removeFile']
